@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 import requests
 
@@ -21,6 +22,14 @@ from parsers.playwright_parser import PlaywrightParser
 from parsers.network import fetch_url, is_public_url
 
 app = FastAPI(title="Breaker Musik Site")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX = STATIC_DIR / "index.html"
