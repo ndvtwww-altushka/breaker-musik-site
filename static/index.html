@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breaker Musik Site</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .track-card { border: 1px solid var(--color-border); border-radius: 8px; padding: 1rem; margin: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .track-info { flex: 1; min-width: 200px; }
+        .track-title { font-weight: 600; margin-bottom: 0.25rem; }
+        .track-meta { font-size: 0.875rem; color: var(--color-muted); }
+        audio { flex: 1; min-width: 200px; }
+        .error { color: var(--color-red); margin: 1rem 0; }
+        .loading { color: var(--color-muted); }
+        input[type="url"] { width: 70%; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Breaker Musik Site</h1>
+        <p>Local music scraper — paste a URL and extract audio tracks</p>
+    </header>
+    <main>
+        <form id="parse-form">
+            <label for="url">URL to parse:</label>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="url" id="url" name="url" placeholder="https://..." required style="flex: 1;">
+                <button type="submit">Parse</button>
+            </div>
+        </form>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
+        <div id="results"></div>
+    </main>
+    <script>
+        const form = document.getElementById('parse-form');
+        const urlInput = document.getElementById('url');
+        const errorDiv = document.getElementById('error');
+        const loadingDiv = document.getElementById('loading');
+        const resultsDiv = document.getElementById('results');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = urlInput.value.trim();
+            if (!url) return;
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            loadingDiv.style.display = 'block';
+            resultsDiv.innerHTML = '';
+            try {
+                const formData = new FormData();
+                formData.append('url', url);
+                const response = await fetch('/api/parse', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (!response.ok) { throw new Error(data.detail || 'Parse failed'); }
+                loadingDiv.style.display = 'none';
+                if (!data.tracks || data.tracks.length === 0) { resultsDiv.innerHTML = '<p class="error">No tracks found</p>'; return; }
+                data.tracks.forEach(track => {
+                    const card = document.createElement('div');
+                    card.className = 'track-card';
+                    card.innerHTML =
+                        '<div class="track-info">' +
+                            '<div class="track-title">' + track.title + '</div>' +
+                            '<div class="track-meta">' +
+                                (track.duration ? 'Duration: ' + track.duration + 's' : '') +
+                                (track.bitrate ? ' | Bitrate: ' + track.bitrate + ' kbps' : '') +
+                                (track.extension ? ' | ' + track.extension.toUpperCase() : '') + '<br>' +
+                                '<a href="/api/download?url=' + encodeURIComponent(track.url) + '&title=' + encodeURIComponent(track.title) + '" target="_blank">Download</a>' +
+                                ' | <a href="' + track.source_url + '" target="_blank">Source</a>' +
+                            '</div>' +
+                        '</div>' +
+                        '<audio controls src="/api/stream?url=' + encodeURIComponent(track.url) + '"></audio>';
+                    resultsDiv.appendChild(card);
+                });
+            } catch (err) {
+                loadingDiv.style.display = 'none';
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = err.message;
+            }
+        });
+    </script>
+</body>
+</html>
