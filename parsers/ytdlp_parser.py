@@ -1,38 +1,52 @@
-import subprocess
-import json
+"""Layer 1: yt-dlp support for known media sites (SoundCloud, YouTube, VK, Bandcamp...)."""
 from typing import List
-from .base import Track
 
-class YtDlpParser:
+import yt_dlp
+from .base import BaseParser, Track
+
+KNOWN_DOMAINS = (
+    "soundcloud.com", "youtu.be", "youtube.com", "vk.com", "vkvideo.ru",
+    "bandcamp.com", "audius.co", "mixcloud.com", "douyin.com", "tiktok.com",
+)
+
+
+class YtDlpParser(BaseParser):
+    def can_handle(self, url: str) -> bool:
+        host = __import__("urllib.parse").urlparse(url).hostname or ""
+        return host.endswith(KNOWN_DOMAINS) if host else False
+
     def extract(self, url: str) -> List[Track]:
-        try:
-            result = subprocess.run(
-                ["yt-dlp", "--dump-json", "--no-download", url],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode != 0:
-                return []
-            data = json.loads(result.stdout)
-            tracks = []
-            if "entries" in data:
-                for entry in data["entries"]:
-                    tracks.append(Track(
-                        url=entry.get("url") or entry.get("webpage_url"),
-                        title=entry.get("title"),
-                        duration=entry.get("duration"),
-                        extension=entry.get("ext"),
-                        source_url=url,
-                    ))
-            else:
-                tracks.append(Track(
-                    url=data.get("url") or data.get("webpage_url"),
-                    title=data.get("title"),
-                    duration=data.get("duration"),
-                    extension=data.get("ext"),
-                    source_url=url,
-                ))
-            return tracks
-        except Exception:
+        ydl_opts = {
+            "quiet": True,
+            "extract_flat": False,
+            "nocheckcertificate": True,
+            "skip_download": True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        if not info:
             return []
+        entries = info.get("entries") or [info]
+        tracks: List[Track] = []
+        for entry in entries:
+            if not entry:
+                continue
+            title = entry.get("title") or "Audio track"
+            formats = entry.get("formats") or []
+            audio_url = ""
+            best_audio = None
+            for fmt in formats:
+                acodec = fmt.get("acodec")
+                abr = fmt.get("abr") or 0
+                if acodec and acodec != "none" and abr > 0:
+                    if best_audio is None or abr > best_audio.get("abr", 0):
+                        best_audio = fmt
+            if best_audio and best_audio.get("url"):
+                audio_url = best_audio["url"]
+            if not audio_url:
+                audio_url = entry.get("url") or ""
+            if not audio_url:
+                continue
+            tracks.append(Track(title=title, url=audio_url, source_url=entry.get("webpage_url") or url,
+                                extension=best_audio.get("ext", "m4a")))
+        return tracks
