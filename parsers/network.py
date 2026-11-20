@@ -1,17 +1,28 @@
-import socket
 import ipaddress
-import requests
+import socket
+from urllib.parse import urlparse
+
 
 def is_public_url(url: str) -> bool:
     try:
-        if not url.startswith(("http://", "https://")):
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
             return False
-        host = url.split("/")[2].split(":")[0]
-        ip = socket.gethostbyname(host)
-        addr = ipaddress.ip_address(ip)
-        return not addr.is_private and not addr.is_loopback and not addr.is_reserved
+        host = parsed.hostname
+        if host == "localhost" or host.endswith(".local") or host.endswith(".internal"):
+            return False
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        for info in infos:
+            ip = ipaddress.ip_address(info[4][0])
+            if not ip.is_global:
+                return False
+        return True
     except Exception:
         return False
 
-def fetch_url(url: str, session: requests.Session, timeout=(5, 30)):
-    return session.get(url, timeout=timeout)
+
+def fetch_url(url: str, timeout=(5, 15), session=None):
+    import requests
+    s = session or requests.Session()
+    return s.get(url, timeout=timeout, stream=True)
