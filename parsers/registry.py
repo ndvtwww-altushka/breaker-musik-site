@@ -1,18 +1,17 @@
-from typing import List, Protocol
-from .base import Track
-
-class Parser(Protocol):
-    def extract(self, url: str) -> List[Track]: ...
+from typing import List, Optional
+from .base import BaseParser, Track
 
 class ParserRegistry:
-    def __init__(self, parsers: List[Parser]):
+    def __init__(self, parsers: List[BaseParser]):
         self.parsers = parsers
 
     def extract(self, url: str) -> List[Track]:
-        tracks = []
-        for p in self.parsers:
-            try:
-                tracks.extend(p.extract(url))
-            except Exception:
-                pass
-        return tracks
+        for parser in self.parsers:
+            if parser.can_handle(url):
+                try:
+                    result = parser.extract(url)
+                    if result:
+                        return result
+                except Exception:
+                    continue
+        return []
