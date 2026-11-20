@@ -1,0 +1,48 @@
+name: Web (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Сборка статичной версии
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Подготовка артефакта
+        env:
+          API_BASE: ${{ vars.API_BASE || '' }}
+        run: |
+          mkdir -p site
+          cp static/index.html site/
+          # config.js — адрес бэкенда (Render). Переопределяется переменными репозитория.
+          printf 'window.API_BASE = "%s";\n' "${API_BASE:-}" > site/config.js
+          [ -f CNAME ] && cp CNAME site/ || true
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Публикация
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
