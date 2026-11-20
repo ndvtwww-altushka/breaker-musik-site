@@ -165,7 +165,7 @@
 
 <script>
 const form=document.querySelector('#form'), input=document.querySelector('#url'), button=document.querySelector('#submit'), statusEl=document.querySelector('#status'), results=document.querySelector('#results');
-const API_BASE=window.API_BASE||'https://breaker-musik-api.onrender.com';
+const API_BASE=window.API_BASE||'https://breaker-musik-site.onrender.com';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const downIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>';
 let animId=0;
